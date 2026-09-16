@@ -8,7 +8,6 @@ COPY . .
 WORKDIR "/src/src/FileProcessing.Api"
 RUN dotnet publish "FileProcessing.Api.csproj" \
     --configuration Release \
-    --no-restore \
     --output /app/publish \
     /p:UseAppHost=false
 

@@ -1,0 +1,20 @@
+[
+  {
+    "id": 101,
+    "name": "Small Item A",
+    "active": true,
+    "value": 12.5
+  },
+  {
+    "id": 102,
+    "name": "Small Item B",
+    "active": false,
+    "value": 4
+  },
+  {
+    "id": 103,
+    "name": "Small Item C",
+    "active": true,
+    "value": 88
+  }
+]

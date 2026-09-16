@@ -1,6 +1,7 @@
 using FileProcessing.Api.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using System.Text;
 
 namespace FileProcessing.Api.Tests;
 
@@ -9,7 +10,7 @@ public sealed class ApiKeyMiddlewareTests
     [Fact]
     public async Task UploadRequest_WithCorrectKey_CallsNext()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", "test-key", "test-key");
+        var (StatusCode, NextCalled, _) = await InvokeAsync("/api/files/upload", "test-key", "test-key");
 
         Assert.Equal(StatusCodes.Status200OK, StatusCode);
         Assert.True(NextCalled);
@@ -18,16 +19,25 @@ public sealed class ApiKeyMiddlewareTests
     [Fact]
     public async Task UploadRequest_WithoutKey_ReturnsUnauthorized()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", null, "test-key");
+        var (StatusCode, NextCalled, _) = await InvokeAsync("/api/files/upload", null, "test-key");
 
         Assert.Equal(StatusCodes.Status401Unauthorized, StatusCode);
         Assert.False(NextCalled);
     }
 
     [Fact]
+    public async Task UploadRequest_WithoutKey_ReturnsErrorMessage()
+    {
+        var (StatusCode, _, Body) = await InvokeAsync("/api/files/upload", null, "test-key");
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, StatusCode);
+        Assert.Equal("Invalid or missing API key.", Body);
+    }
+
+    [Fact]
     public async Task UploadRequest_WithIncorrectKey_ReturnsUnauthorized()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", "wrong-key", "test-key");
+        var (StatusCode, NextCalled, _) = await InvokeAsync("/api/files/upload", "wrong-key", "test-key");
 
         Assert.Equal(StatusCodes.Status401Unauthorized, StatusCode);
         Assert.False(NextCalled);
@@ -36,7 +46,7 @@ public sealed class ApiKeyMiddlewareTests
     [Fact]
     public async Task UploadRequest_WithoutConfiguredKey_ReturnsUnauthorized()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", "test-key", null);
+        var (StatusCode, NextCalled, _) = await InvokeAsync("/api/files/upload", "test-key", null);
 
         Assert.Equal(StatusCodes.Status401Unauthorized, StatusCode);
         Assert.False(NextCalled);
@@ -45,13 +55,13 @@ public sealed class ApiKeyMiddlewareTests
     [Fact]
     public async Task HealthRequest_DoesNotRequireKey()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/health", null, "test-key");
+        var (StatusCode, NextCalled, _) = await InvokeAsync("/health", null, "test-key");
 
         Assert.Equal(StatusCodes.Status200OK, StatusCode);
         Assert.True(NextCalled);
     }
 
-    private static async Task<(int StatusCode, bool NextCalled)> InvokeAsync(
+    private static async Task<(int StatusCode, bool NextCalled, string Body)> InvokeAsync(
         string path,
         string? suppliedKey,
         string? configuredKey)
@@ -64,7 +74,7 @@ public sealed class ApiKeyMiddlewareTests
         return await InvokeAsync(middleware, tracker, suppliedKey, path);
     }
 
-    private static async Task<(int StatusCode, bool NextCalled)> InvokeAsync(
+    private static async Task<(int StatusCode, bool NextCalled, string Body)> InvokeAsync(
         ApiKeyMiddleware middleware,
         NextTracker tracker,
         string? suppliedKey,
@@ -72,6 +82,7 @@ public sealed class ApiKeyMiddlewareTests
     {
         tracker.Reset();
         DefaultHttpContext context = new();
+        context.Response.Body = new MemoryStream();
         context.Request.Path = path;
         if (suppliedKey is not null)
         {
@@ -80,7 +91,9 @@ public sealed class ApiKeyMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        return (context.Response.StatusCode, tracker.Called);
+        context.Response.Body.Position = 0;
+        using StreamReader reader = new(context.Response.Body, Encoding.UTF8);
+        return (context.Response.StatusCode, tracker.Called, await reader.ReadToEndAsync());
     }
 
     private sealed class NextTracker

@@ -1,6 +1,17 @@
 @FileProcessing.Api_HostAddress = http://localhost:5232
+@ApiKey = local-development-key
 
-GET {{FileProcessing.Api_HostAddress}}/weatherforecast/
+GET {{FileProcessing.Api_HostAddress}}/health
 Accept: application/json
 
 ###
+
+GET {{FileProcessing.Api_HostAddress}}/api/files/report
+X-API-Key: {{ApiKey}}
+Accept: application/json
+
+###
+
+GET {{FileProcessing.Api_HostAddress}}/api/files/FILE_ID/records?active=true&name=item&nameComparison=Contains&value=100&valueComparison=GreaterThanOrEqual
+X-API-Key: {{ApiKey}}
+Accept: application/json

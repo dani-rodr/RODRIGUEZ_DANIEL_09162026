@@ -128,8 +128,13 @@ public sealed class FilesController(IFileStore fileStore) : ControllerBase
     [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<UploadResponse>> Upload(
         [FromHeader(Name = ApiKeyMiddleware.HeaderName)] string apiKey,
-        IFormFile file)
+        IFormFile? file)
     {
+        if (file is null)
+        {
+            return BadRequest("A JSON file is required.");
+        }
+
         if (!string.Equals(
                 Path.GetExtension(file.FileName),
                 ".json",

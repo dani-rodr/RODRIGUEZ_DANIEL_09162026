@@ -19,6 +19,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next, IConfiguration config
                 !KeysMatch(suppliedKey, configuredKey))
             {
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsync("Invalid or missing API key.");
                 return;
             }
         }

@@ -1,0 +1,25 @@
+@using FileProcessing.Api.Models
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Name</th><th>Active</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+            @foreach (ItemRecord record in Records)
+            {
+                <tr>
+                    <td>@record.Id</td>
+                    <td>@record.Name</td>
+                    <td>@record.Active</td>
+                    <td>@record.Value</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<ItemRecord> Records { get; set; } = [];
+}

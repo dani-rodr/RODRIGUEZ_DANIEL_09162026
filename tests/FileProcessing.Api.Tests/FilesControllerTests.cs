@@ -31,6 +31,21 @@ public sealed class FilesControllerTests
     }
 
     [Fact]
+    public async Task Upload_WhenFileIsMissing_ReturnsBadRequestMessage()
+    {
+        InMemoryFileStore store = new();
+
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", null);
+
+        BadRequestObjectResult badRequest =
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+
+        Assert.Equal("A JSON file is required.", badRequest.Value);
+        Assert.Null(store.SavedFile);
+    }
+
+    [Fact]
     public async Task Upload_WhenFileIsNotJson_ReturnsBadRequest()
     {
         InMemoryFileStore store = new();

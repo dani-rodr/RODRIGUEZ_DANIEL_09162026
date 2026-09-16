@@ -1,0 +1,357 @@
+@page "/"
+@inject NavigationManager Navigation
+
+<PageTitle>File Processing API</PageTitle>
+
+<header>
+    <div>
+        <p class="eyebrow">JSON workspace</p>
+        <h1>File Processing API</h1>
+    </div>
+    <a href="/swagger">Swagger</a>
+</header>
+
+<main>
+    <section class="card key-card">
+        <label for="api-key">API key</label>
+        <input id="api-key" type="password" @bind="apiKey" @bind:event="oninput" autocomplete="off" />
+        <button type="button" @onclick="LoadReport" disabled="@(IsBusy)">Load files</button>
+    </section>
+
+    @if (errorMessage is not null)
+    {
+        <p class="message error" role="alert">@errorMessage</p>
+    }
+    @if (statusMessage is not null)
+    {
+        <p class="message success" role="status">@statusMessage</p>
+    }
+
+    <section class="card">
+        <h2>Upload JSON</h2>
+        <div class="upload-row">
+            <InputFile OnChange="SelectUpload" accept=".json,application/json" />
+            <button type="button" @onclick="UploadFile" disabled="@(IsBusy)">
+                @(IsBusy ? "Uploading..." : "Upload")
+            </button>
+        </div>
+
+        @if (uploadFile is not null)
+        {
+            <p class="file-name">@uploadFile.Name</p>
+        }
+
+    </section>
+
+    <section class="card">
+        <div class="section-heading">
+            <h2>Processed files</h2>
+            @if (fileReport is not null)
+            {
+                <span class="muted">@fileReport.TotalFiles file(s)</span>
+            }
+        </div>
+
+        @if (fileReport is null)
+        {
+            <p class="muted">Load the report to see uploaded files.</p>
+        }
+        else if (fileReport.Files.Count == 0)
+        {
+            <p class="muted">No files have been uploaded.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>ID</th><th>Filename</th><th>Size</th><th>Uploaded</th><th>Records</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (FileReportItem file in fileReport.Files)
+                        {
+                            <tr class="@(selectedFile?.Id == file.Id ? "selected" : string.Empty)">
+                                <td class="id">@file.Id</td>
+                                <td>@file.FileName</td>
+                                <td>@FormatBytes(file.Size)</td>
+                                <td>@file.UploadedAtUtc.ToLocalTime().ToString("g")</td>
+                                <td>@file.RecordCount</td>
+                                <td><button class="secondary small" type="button" @onclick="() => SelectFile(file)" disabled="@(IsBusy)">Select</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @if (selectedFile is not null)
+    {
+        <section class="card">
+            <div class="section-heading">
+                <h2>Filter @selectedFile.FileName</h2>
+                @if (recordsResponse is not null)
+                {
+                    <span class="muted">@recordsResponse.MatchedCount / @recordsResponse.TotalCount matched</span>
+                }
+            </div>
+
+            <div class="filters">
+                <fieldset>
+                    <legend>Active</legend>
+                    <select @bind="activeFilter">
+                        <option value="">Any</option>
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                    </select>
+                    <select @bind="activeComparison">
+                        @foreach (ActiveComparison comparison in Enum.GetValues<ActiveComparison>())
+                        {
+                            <option value="@comparison">@comparison</option>
+                        }
+                    </select>
+                </fieldset>
+                <fieldset>
+                    <legend>Name</legend>
+                    <input @bind="nameFilter" placeholder="Search name" />
+                    <select @bind="nameComparison">
+                        @foreach (NameComparison comparison in Enum.GetValues<NameComparison>())
+                        {
+                            <option value="@comparison">@comparison</option>
+                        }
+                    </select>
+                </fieldset>
+                <fieldset>
+                    <legend>Value</legend>
+                    <input type="number" step="any" @bind="valueFilter" placeholder="Any value" />
+                    <select @bind="valueComparison">
+                        @foreach (ValueComparison comparison in Enum.GetValues<ValueComparison>())
+                        {
+                            <option value="@comparison">@comparison</option>
+                        }
+                    </select>
+                </fieldset>
+            </div>
+
+            <div class="actions">
+                <button type="button" @onclick="LoadRecords" disabled="@(IsBusy)">Apply filters</button>
+                <button class="secondary" type="button" @onclick="ClearFilters" disabled="@(IsBusy)">Clear</button>
+            </div>
+
+            @if (recordsResponse is not null)
+            {
+                <RecordTable Records="recordsResponse.Records" />
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private const long MaxFileSize = 5 * 1024 * 1024;
+    private string apiKey = string.Empty;
+    private IBrowserFile? uploadFile;
+    private FileReportResponse? fileReport;
+    private FileReportItem? selectedFile;
+    private FilteredRecordsResponse? recordsResponse;
+    private string activeFilter = string.Empty;
+    private ActiveComparison activeComparison = ActiveComparison.Equal;
+    private string nameFilter = string.Empty;
+    private NameComparison nameComparison = NameComparison.Contains;
+    private string valueFilter = string.Empty;
+    private ValueComparison valueComparison = ValueComparison.GreaterThanOrEqual;
+    private string? errorMessage;
+    private string? statusMessage;
+    private bool IsBusy { get; set; }
+
+    private void SelectUpload(InputFileChangeEventArgs args)
+    {
+        ClearMessages();
+        uploadFile = args.File;
+    }
+
+    private async Task UploadFile()
+    {
+        IsBusy = true;
+        ClearMessages();
+
+        try
+        {
+            using HttpClient client = CreateClient();
+            using HttpRequestMessage request = CreateRequest(HttpMethod.Post, "api/files/upload");
+            using HttpResponseMessage response = uploadFile is null
+                ? await client.SendAsync(request)
+                : await SendUploadAsync(client, request, uploadFile);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            UploadResponse? upload = await response.Content.ReadFromJsonAsync<UploadResponse>();
+            await LoadReport();
+            selectedFile = fileReport?.Files.FirstOrDefault(file => file.Id == upload?.Id);
+            if (selectedFile is not null)
+            {
+                await LoadRecords();
+            }
+
+            statusMessage = upload is null
+                ? "File uploaded."
+                : $"Uploaded {upload.FileName}: {upload.RecordCount} record(s).";
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The API could not be reached.";
+        }
+        catch (IOException)
+        {
+            errorMessage = "The file could not be read or is larger than 5 MB.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadReport()
+    {
+        IsBusy = true;
+        ClearMessages();
+        try
+        {
+            using HttpClient client = CreateClient();
+            using HttpRequestMessage request = CreateRequest(HttpMethod.Get, "api/files/report");
+            using HttpResponseMessage response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            fileReport = await response.Content.ReadFromJsonAsync<FileReportResponse>();
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The API could not be reached.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static async Task<HttpResponseMessage> SendUploadAsync(
+        HttpClient client,
+        HttpRequestMessage request,
+        IBrowserFile file)
+    {
+        using MultipartFormDataContent form = new();
+        await using Stream stream = file.OpenReadStream(MaxFileSize);
+        using StreamContent content = new(stream);
+        form.Add(content, "file", file.Name);
+        request.Content = form;
+        return await client.SendAsync(request);
+    }
+
+    private async Task SelectFile(FileReportItem file)
+    {
+        selectedFile = file;
+        await LoadRecords();
+    }
+
+    private async Task LoadRecords()
+    {
+        if (selectedFile is null)
+        {
+            return;
+        }
+
+        ClearMessages();
+        List<string> query = [];
+        if (!string.IsNullOrWhiteSpace(activeFilter))
+        {
+            query.Add($"active={Uri.EscapeDataString(activeFilter)}");
+            query.Add($"activeComparison={activeComparison}");
+        }
+        if (!string.IsNullOrWhiteSpace(nameFilter))
+        {
+            query.Add($"name={Uri.EscapeDataString(nameFilter)}");
+            query.Add($"nameComparison={nameComparison}");
+        }
+        if (!string.IsNullOrWhiteSpace(valueFilter))
+        {
+            query.Add($"value={Uri.EscapeDataString(valueFilter)}");
+            query.Add($"valueComparison={valueComparison}");
+        }
+
+        string path = $"api/files/{Uri.EscapeDataString(selectedFile.Id)}/records";
+        if (query.Count > 0)
+        {
+            path += $"?{string.Join('&', query)}";
+        }
+
+        IsBusy = true;
+        try
+        {
+            using HttpClient client = CreateClient();
+            using HttpRequestMessage request = CreateRequest(HttpMethod.Get, path);
+            using HttpResponseMessage response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            recordsResponse = await response.Content.ReadFromJsonAsync<FilteredRecordsResponse>();
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The API could not be reached.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        activeFilter = string.Empty;
+        activeComparison = ActiveComparison.Equal;
+        nameFilter = string.Empty;
+        nameComparison = NameComparison.Contains;
+        valueFilter = string.Empty;
+        valueComparison = ValueComparison.GreaterThanOrEqual;
+        await LoadRecords();
+    }
+
+    private HttpClient CreateClient() => new() { BaseAddress = new Uri(Navigation.BaseUri) };
+
+    private HttpRequestMessage CreateRequest(HttpMethod method, string path)
+    {
+        HttpRequestMessage request = new(method, path);
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            request.Headers.Add("X-API-Key", apiKey);
+        }
+        return request;
+    }
+
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
+    {
+        string message = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(message)
+            ? $"Request failed with status {(int)response.StatusCode}."
+            : message.Trim('"');
+    }
+
+    private void ClearMessages()
+    {
+        errorMessage = null;
+        statusMessage = null;
+    }
+
+    private static string FormatBytes(long bytes) =>
+        bytes < 1024 * 1024 ? $"{bytes / 1024.0:N1} KB" : $"{bytes / (1024.0 * 1024):N1} MB";
+}

@@ -14,7 +14,7 @@ bash setup.sh
 
 On Windows, run `setup.bat` from the repository folder. Both scripts create `.env` from `.env.example` when it does not exist, then build and start the stack in the background. Existing `.env` settings are not overwritten.
 
-The default API key and MongoDB credentials are for local development. Change them in `.env` when needed. The API is available at `http://localhost:5274`; open `http://localhost:5274/swagger` to use it.
+The default API key and MongoDB credentials are for local development. Change them in `.env` when needed. The API is available at `http://localhost:5274`; open `http://localhost:5274/` for the browser page or `http://localhost:5274/swagger` for the API.
 
 If port `5274` is already in use, change `API_PORT` in `.env` and run the setup script again. MongoDB is only available inside the Compose network. Its data is kept in the `mongo-data` volume.
 
@@ -67,7 +67,7 @@ Then run the API:
 dotnet run --project src/FileProcessing.Api/FileProcessing.Api.csproj --launch-profile http
 ```
 
-The local Swagger page is at `http://localhost:5232/swagger`.
+The local browser page is at `http://localhost:5232/`. Swagger is at `http://localhost:5232/swagger`.
 
 ## JSON format
 
@@ -84,7 +84,7 @@ Uploads must have a `.json` extension and contain an array of records with this 
 ]
 ```
 
-`samples/items.json` contains a larger example. The upload stores the parsed records and file metadata. The original file is not stored.
+`samples/items.json` contains a larger example. `samples/items-small.json` and `samples/items-special.json` contain smaller variants. `samples/items-invalid.json` is expected to be rejected. The upload stores the parsed records and file metadata. The original file is not stored.
 
 ## Endpoints
 
@@ -103,7 +103,11 @@ Use the `X-API-Key` field shown in Swagger, or add the header to a request. The 
 curl -H "X-API-Key: local-development-key" http://localhost:5274/api/files/report
 ```
 
-## Typical workflow
+## Browser workflow
+
+Open the root page, enter the API key, and choose a JSON file. The page previews the records before upload. After uploading, load the report, select a file, and apply filters.
+
+## API workflow
 
 Upload a file and copy the `id` from the response:
 
