@@ -23,14 +23,43 @@ public sealed class FilesController(IFileStore fileStore) : ControllerBase
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
     [ProducesResponseType<UploadResponse>(StatusCodes.Status200OK)]
-    public async Task<UploadResponse> Upload(
+    [ProducesResponseType<string>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<UploadResponse>> Upload(
         [FromHeader(Name = ApiKeyMiddleware.HeaderName)] string apiKey,
         IFormFile file)
     {
+        if (!string.Equals(
+                Path.GetExtension(file.FileName),
+                ".json",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Only JSON files are allowed.");
+        }
+
+        List<ItemRecord>? records;
+
         await using Stream stream = file.OpenReadStream();
-        List<ItemRecord> records = await JsonSerializer.DeserializeAsync<List<ItemRecord>>(
-            stream,
-            new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? [];
+
+        try
+        {
+            records = await JsonSerializer.DeserializeAsync<List<ItemRecord>>(
+                stream,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)
+                {
+                    RespectNullableAnnotations = true,
+                    RespectRequiredConstructorParameters = true
+                });
+        }
+        catch (JsonException)
+        {
+            return BadRequest("Invalid JSON structure.");
+        }
+
+        if (records is null || records.Any(record => record is null || record.Name is null))
+        {
+            return BadRequest("Invalid JSON structure.");
+        }
+
 
         StoredFile storedFile = new()
         {

@@ -1,7 +1,8 @@
-using FileProcessing.Api.Data;
 using FileProcessing.Api.Controllers;
+using FileProcessing.Api.Data;
 using FileProcessing.Api.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.Text;
 
 namespace FileProcessing.Api.Tests;
@@ -16,7 +17,10 @@ public sealed class FilesControllerTests
             "[{\"id\":1,\"name\":\"Item A\",\"active\":true,\"value\":75}]"));
         IFormFile file = new FormFile(stream, 0, stream.Length, "file", "items.json");
 
-        UploadResponse response = await new FilesController(store).Upload("test-key", file);
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", file);
+
+        UploadResponse response = Assert.IsType<UploadResponse>(result.Value);
 
         Assert.NotNull(store.SavedFile);
         Assert.Equal("items.json", response.FileName);
@@ -24,6 +28,111 @@ public sealed class FilesControllerTests
         Assert.Equal(1, response.RecordCount);
         Assert.Equal("Item A", store.SavedFile!.Records[0].Name);
         Assert.Equal(75, store.SavedFile.Records[0].Value);
+    }
+
+    [Fact]
+    public async Task Upload_WhenFileIsNotJson_ReturnsBadRequest()
+    {
+        InMemoryFileStore store = new();
+        using MemoryStream stream = new(Encoding.UTF8.GetBytes("test"));
+        IFormFile file = new FormFile(stream, 0, stream.Length, "file", "items.txt");
+
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", file);
+
+        BadRequestObjectResult badRequest =
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+
+        Assert.Equal("Only JSON files are allowed.", badRequest.Value);
+        Assert.Null(store.SavedFile);
+    }
+
+    [Fact]
+    public async Task Upload_WhenJsonIsMalformed_ReturnsBadRequest()
+    {
+        InMemoryFileStore store = new();
+        using MemoryStream stream = new(Encoding.UTF8.GetBytes(
+            "[{\"id\":1,\"name\":\"Item A\""));
+        IFormFile file = new FormFile(stream, 0, stream.Length, "file", "items.json");
+
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", file);
+
+        BadRequestObjectResult badRequest =
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+
+        Assert.Equal("Invalid JSON structure.", badRequest.Value);
+        Assert.Null(store.SavedFile);
+    }
+
+    [Fact]
+    public async Task Upload_WhenJsonHasInvalidFieldType_ReturnsBadRequest()
+    {
+        InMemoryFileStore store = new();
+        using MemoryStream stream = new(Encoding.UTF8.GetBytes(
+            "[{\"id\":\"invalid\",\"name\":\"Item A\",\"active\":true,\"value\":75}]"));
+        IFormFile file = new FormFile(stream, 0, stream.Length, "file", "items.json");
+
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", file);
+
+        BadRequestObjectResult badRequest =
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+
+        Assert.Equal("Invalid JSON structure.", badRequest.Value);
+        Assert.Null(store.SavedFile);
+    }
+
+    [Fact]
+    public async Task Upload_WhenJsonRecordIsMissingRequiredField_ReturnsBadRequest()
+    {
+        InMemoryFileStore store = new();
+        using MemoryStream stream = new(Encoding.UTF8.GetBytes(
+            "[{\"id\":1,\"active\":true,\"value\":75}]"));
+        IFormFile file = new FormFile(stream, 0, stream.Length, "file", "items.json");
+
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", file);
+
+        BadRequestObjectResult badRequest =
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+
+        Assert.Equal("Invalid JSON structure.", badRequest.Value);
+        Assert.Null(store.SavedFile);
+    }
+
+    [Fact]
+    public async Task Upload_WhenJsonContainsNullRecord_ReturnsBadRequest()
+    {
+        InMemoryFileStore store = new();
+        using MemoryStream stream = new(Encoding.UTF8.GetBytes("[null]"));
+        IFormFile file = new FormFile(stream, 0, stream.Length, "file", "items.json");
+
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", file);
+
+        BadRequestObjectResult badRequest =
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+
+        Assert.Equal("Invalid JSON structure.", badRequest.Value);
+        Assert.Null(store.SavedFile);
+    }
+
+    [Fact]
+    public async Task Upload_WhenJsonIsNull_ReturnsBadRequest()
+    {
+        InMemoryFileStore store = new();
+        using MemoryStream stream = new(Encoding.UTF8.GetBytes("null"));
+        IFormFile file = new FormFile(stream, 0, stream.Length, "file", "items.json");
+
+        ActionResult<UploadResponse> result =
+            await new FilesController(store).Upload("test-key", file);
+
+        BadRequestObjectResult badRequest =
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+
+        Assert.Equal("Invalid JSON structure.", badRequest.Value);
+        Assert.Null(store.SavedFile);
     }
 
     [Fact]
@@ -41,6 +150,7 @@ public sealed class FilesControllerTests
     {
         DateTime firstUpload = new(2026, 9, 17, 12, 0, 0, DateTimeKind.Utc);
         DateTime secondUpload = firstUpload.AddMinutes(5);
+
         InMemoryFileStore store = new()
         {
             Report =
@@ -94,7 +204,9 @@ public sealed class FilesControllerTests
         }
 
         public Task<IReadOnlyList<FileReportItem>> GetReportAsync(
-            CancellationToken cancellationToken = default) => Task.FromResult(Report);
-
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Report);
+        }
     }
 }
