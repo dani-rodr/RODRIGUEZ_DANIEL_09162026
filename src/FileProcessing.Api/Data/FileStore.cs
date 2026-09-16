@@ -7,6 +7,8 @@ public interface IFileStore
 {
     Task SaveAsync(StoredFile file);
 
+    Task<StoredFile?> GetAsync(string id, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<FileReportItem>> GetReportAsync(
         CancellationToken cancellationToken = default);
 }
@@ -19,6 +21,11 @@ public sealed class MongoFileStore(IConfiguration configuration) : IFileStore
         .GetCollection<StoredFile>("files");
 
     public Task SaveAsync(StoredFile file) => files.InsertOneAsync(file);
+
+    public async Task<StoredFile?> GetAsync(
+        string id,
+        CancellationToken cancellationToken = default) =>
+        await files.Find(file => file.Id == id).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<FileReportItem>> GetReportAsync(
         CancellationToken cancellationToken = default)
