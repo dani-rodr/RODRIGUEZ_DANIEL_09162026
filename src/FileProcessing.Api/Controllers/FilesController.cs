@@ -9,7 +9,9 @@ namespace FileProcessing.Api.Controllers;
 public sealed class FilesController : ControllerBase
 {
     [HttpPost("process")]
-    [ProducesResponseType<ProcessResponse>(StatusCodes.Status200OK)]
-    public ProcessResponse Process(
-        [FromHeader(Name = ApiKeyMiddleware.HeaderName)] string apiKey) => new(true);
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType<UploadResponse>(StatusCodes.Status200OK)]
+    public UploadResponse Process(
+        [FromHeader(Name = ApiKeyMiddleware.HeaderName)] string apiKey,
+        IFormFile file) => new(file.FileName, file.Length);
 }
