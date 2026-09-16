@@ -101,6 +101,10 @@ button.secondary {
     color: #176b61;
 }
 
+button.danger {
+    background: #a12d24;
+}
+
 button.small {
     font-size: .8rem;
     min-height: 1.9rem;
@@ -130,6 +134,12 @@ button:disabled {
 .file-name {
     font-weight: bold;
     margin: 1rem 0;
+}
+
+.file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
 }
 
 .upload-row {

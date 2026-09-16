@@ -122,6 +122,18 @@ public sealed class FilesController(IFileStore fileStore) : ControllerBase
             matchedRecords);
     }
 
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<string>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        [FromHeader(Name = ApiKeyMiddleware.HeaderName)] string apiKey,
+        string id,
+        CancellationToken cancellationToken)
+    {
+        bool deleted = await fileStore.DeleteAsync(id, cancellationToken);
+        return deleted ? NoContent() : NotFound("File not found.");
+    }
+
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
     [ProducesResponseType<UploadResponse>(StatusCodes.Status200OK)]

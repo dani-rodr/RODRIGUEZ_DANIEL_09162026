@@ -338,6 +338,31 @@ public sealed class FilesControllerTests
         Assert.Equal("valueComparison requires value.", badRequest.Value);
     }
 
+    [Fact]
+    public async Task Delete_WhenFileExists_ReturnsNoContent()
+    {
+        InMemoryFileStore store = new() { RetrievedFile = CreateStoredFile() };
+
+        IActionResult result = await new FilesController(store)
+            .Delete("test-key", "file-1", CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal("file-1", store.DeletedId);
+    }
+
+    [Fact]
+    public async Task Delete_WhenFileDoesNotExist_ReturnsNotFound()
+    {
+        InMemoryFileStore store = new();
+
+        IActionResult result = await new FilesController(store)
+            .Delete("test-key", "missing-file", CancellationToken.None);
+
+        NotFoundObjectResult notFound = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal("File not found.", notFound.Value);
+        Assert.Equal("missing-file", store.DeletedId);
+    }
+
     private static StoredFile CreateStoredFile() => new()
     {
         Id = "file-1",
@@ -365,12 +390,23 @@ public sealed class FilesControllerTests
 
         public StoredFile? RetrievedFile { get; set; }
 
+        public string? DeletedId { get; private set; }
+
         public IReadOnlyList<FileReportItem> Report { get; set; } = [];
 
         public Task SaveAsync(StoredFile file)
         {
             SavedFile = file;
             return Task.CompletedTask;
+        }
+
+        public Task<bool> DeleteAsync(
+            string id,
+            CancellationToken cancellationToken = default)
+        {
+            DeletedId = id;
+            bool deleted = RetrievedFile?.Id == id;
+            return Task.FromResult(deleted);
         }
 
         public Task<StoredFile?> GetAsync(

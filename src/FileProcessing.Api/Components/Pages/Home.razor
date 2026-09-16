@@ -1,5 +1,6 @@
 @page "/"
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>File Processing API</PageTitle>
 
@@ -76,7 +77,12 @@
                                 <td>@FormatBytes(file.Size)</td>
                                 <td>@file.UploadedAtUtc.ToLocalTime().ToString("g")</td>
                                 <td>@file.RecordCount</td>
-                                <td><button class="secondary small" type="button" @onclick="() => SelectFile(file)" disabled="@(IsBusy)">Select</button></td>
+                                <td>
+                                    <div class="file-actions">
+                                        <button class="secondary small" type="button" @onclick="() => SelectFile(file)" disabled="@(IsBusy)">Select</button>
+                                        <button class="danger small" type="button" @onclick="() => DeleteFile(file)" disabled="@(IsBusy)">Delete</button>
+                                    </div>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -258,6 +264,55 @@
     {
         selectedFile = file;
         await LoadRecords();
+    }
+
+    private async Task DeleteFile(FileReportItem file)
+    {
+        if (IsBusy || !await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Delete {file.FileName}? This cannot be undone."))
+        {
+            return;
+        }
+
+        IsBusy = true;
+        ClearMessages();
+        try
+        {
+            using HttpClient client = CreateClient();
+            using HttpRequestMessage request = CreateRequest(
+                HttpMethod.Delete,
+                $"api/files/{Uri.EscapeDataString(file.Id)}");
+            using HttpResponseMessage response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            bool wasSelected = selectedFile?.Id == file.Id;
+            await LoadReport();
+            if (errorMessage is not null)
+            {
+                return;
+            }
+
+            if (wasSelected)
+            {
+                selectedFile = null;
+                recordsResponse = null;
+            }
+
+            statusMessage = $"Deleted {file.FileName}.";
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "The API could not be reached.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     private async Task LoadRecords()

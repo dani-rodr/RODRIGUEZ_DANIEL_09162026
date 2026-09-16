@@ -96,6 +96,7 @@ All `/api/files` endpoints require the `X-API-Key` header. `/health` is public.
 | POST | `/api/files/upload` | Upload and store one JSON file |
 | GET | `/api/files/report` | List uploaded files and record counts |
 | GET | `/api/files/{id}/records` | Return records for one file, optionally filtered |
+| DELETE | `/api/files/{id}` | Delete one stored file and its records |
 
 Use the `X-API-Key` field shown in Swagger, or add the header to a request. The Docker default port is used below; use `5232` for a local `dotnet run` process.
 
@@ -105,7 +106,7 @@ curl -H "X-API-Key: local-development-key" http://localhost:5274/api/files/repor
 
 ## Browser workflow
 
-Open the root page, enter the API key, and choose a JSON file. The page previews the records before upload. After uploading, load the report, select a file, and apply filters.
+Open the root page, enter the API key, and choose a JSON file. Upload it, load the report, select a file, and apply filters. Use the Delete button beside a file to remove it after confirming.
 
 ## API workflow
 
@@ -132,6 +133,14 @@ curl -G \
 ```
 
 Filters are optional and are combined with AND. If a comparison is omitted, the defaults are `Equal` for `active` and `value`, and `Contains` for `name`.
+
+Delete a stored file by ID:
+
+```bash
+curl -X DELETE \
+  -H "X-API-Key: local-development-key" \
+  http://localhost:5274/api/files/FILE_ID
+```
 
 Available comparisons:
 

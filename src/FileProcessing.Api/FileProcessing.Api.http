@@ -15,3 +15,8 @@ Accept: application/json
 GET {{FileProcessing.Api_HostAddress}}/api/files/FILE_ID/records?active=true&name=item&nameComparison=Contains&value=100&valueComparison=GreaterThanOrEqual
 X-API-Key: {{ApiKey}}
 Accept: application/json
+
+###
+
+DELETE {{FileProcessing.Api_HostAddress}}/api/files/FILE_ID
+X-API-Key: {{ApiKey}}
