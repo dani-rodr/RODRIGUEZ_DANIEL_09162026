@@ -1,0 +1,17 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+TestResults/
+
+## IDE
+.vs/
+.vscode/
+
+## Local configuration and secrets
+appsettings.Local.json
+.env
+
+## Challenge source material
+NET Core Coding Challenge.pdf
