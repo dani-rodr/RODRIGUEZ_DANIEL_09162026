@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "name": "Item A",
+    "active": true,
+    "value": 75
+  },
+  {
+    "id": 2,
+    "name": "Item B",
+    "active": false,
+    "value": 25
+  },
+  {
+    "id": 3,
+    "name": "Item C",
+    "active": true,
+    "value": 120
+  },
+  {
+    "id": 4,
+    "name": "Item D",
+    "active": false,
+    "value": 50
+  },
+  {
+    "id": 5,
+    "name": "Premium Item",
+    "active": true,
+    "value": 50
+  },
+  {
+    "id": 6,
+    "name": "Archived Item",
+    "active": false,
+    "value": 10
+  },
+  {
+    "id": 7,
+    "name": "North Item",
+    "active": true,
+    "value": 200
+  },
+  {
+    "id": 8,
+    "name": "South Item",
+    "active": false,
+    "value": 90
+  },
+  {
+    "id": 9,
+    "name": "Zero Value Item",
+    "active": true,
+    "value": 0
+  },
+  {
+    "id": 10,
+    "name": "Final Item",
+    "active": true,
+    "value": 150
+  }
+]

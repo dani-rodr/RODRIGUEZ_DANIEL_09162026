@@ -7,36 +7,36 @@ namespace FileProcessing.Api.Tests;
 public sealed class ApiKeyMiddlewareTests
 {
     [Fact]
-    public async Task ProcessRequest_WithCorrectKey_CallsNext()
+    public async Task UploadRequest_WithCorrectKey_CallsNext()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/process", "test-key", "test-key");
+        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", "test-key", "test-key");
 
         Assert.Equal(StatusCodes.Status200OK, StatusCode);
         Assert.True(NextCalled);
     }
 
     [Fact]
-    public async Task ProcessRequest_WithoutKey_ReturnsUnauthorized()
+    public async Task UploadRequest_WithoutKey_ReturnsUnauthorized()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/process", null, "test-key");
+        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", null, "test-key");
 
         Assert.Equal(StatusCodes.Status401Unauthorized, StatusCode);
         Assert.False(NextCalled);
     }
 
     [Fact]
-    public async Task ProcessRequest_WithIncorrectKey_ReturnsUnauthorized()
+    public async Task UploadRequest_WithIncorrectKey_ReturnsUnauthorized()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/process", "wrong-key", "test-key");
+        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", "wrong-key", "test-key");
 
         Assert.Equal(StatusCodes.Status401Unauthorized, StatusCode);
         Assert.False(NextCalled);
     }
 
     [Fact]
-    public async Task ProcessRequest_WithoutConfiguredKey_ReturnsUnauthorized()
+    public async Task UploadRequest_WithoutConfiguredKey_ReturnsUnauthorized()
     {
-        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/process", "test-key", null);
+        var (StatusCode, NextCalled) = await InvokeAsync("/api/files/upload", "test-key", null);
 
         Assert.Equal(StatusCodes.Status401Unauthorized, StatusCode);
         Assert.False(NextCalled);
@@ -68,7 +68,7 @@ public sealed class ApiKeyMiddlewareTests
         ApiKeyMiddleware middleware,
         NextTracker tracker,
         string? suppliedKey,
-        string path = "/api/files/process")
+        string path = "/api/files/upload")
     {
         tracker.Reset();
         DefaultHttpContext context = new();
