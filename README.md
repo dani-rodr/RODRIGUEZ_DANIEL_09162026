@@ -1,73 +1,74 @@
 # File Processing API
 
-An ASP.NET Core API that accepts JSON files, stores the parsed records in MongoDB, and returns reports or filtered records.
+An ASP.NET Core REST API with a small browser UI. Upload JSON files, store their parsed records in MongoDB, view processing reports, filter records, and delete stored files.
 
-## Run with Docker
+## Quick start
 
-Docker Desktop is the easiest way to run the API and MongoDB together.
+Install Git and Docker Desktop first. Docker Desktop must be running.
 
-On macOS or Linux:
+### Linux or macOS
+
+Copy and run:
 
 ```bash
+git clone https://github.com/dani-rodr/RODRIGUEZ_DANIEL_09162026.git
+cd RODRIGUEZ_DANIEL_09162026
 bash setup.sh
 ```
 
-On Windows, run `setup.bat` from the repository folder. Both scripts create `.env` from `.env.example` when it does not exist, then build and start the stack in the background. Existing `.env` settings are not overwritten.
+### Windows Command Prompt or PowerShell
 
-The default API key and MongoDB credentials are for local development. Change them in `.env` when needed. The API is available at `http://localhost:5274`; open `http://localhost:5274/` for the browser page or `http://localhost:5274/swagger` for the API.
+Copy and run:
 
-If port `5274` is already in use, change `API_PORT` in `.env` and run the setup script again. MongoDB is only available inside the Compose network. Its data is kept in the `mongo-data` volume.
-
-The equivalent Compose command is:
-
-```bash
-docker compose up --build
+```bat
+git clone https://github.com/dani-rodr/RODRIGUEZ_DANIEL_09162026.git
+cd RODRIGUEZ_DANIEL_09162026
+.\setup.bat
 ```
 
-Stop the stack with:
+The setup script creates `.env` from `.env.example` when needed, builds the API image, and starts the API and MongoDB in the background. Existing `.env` settings are not overwritten.
 
-```bash
-docker compose down
-```
+After setup:
 
-## Build and test
+- Browser UI: http://localhost:5274/
+- Swagger API: http://localhost:5274/swagger
+- Health check: http://localhost:5274/health
 
-The solution uses .NET 10.
-
-```bash
-dotnet restore FileProcessing.slnx
-dotnet build FileProcessing.slnx --configuration Release --no-restore
-dotnet test FileProcessing.slnx --configuration Release --no-build --no-restore
-```
-
-## Run locally
-
-The Development settings expect MongoDB at `localhost:27017` with the following local credentials:
+Enter this default API key in the browser UI or use it in the API examples:
 
 ```text
-Username: admin
-Password: password
-Database: file-processing
-API key: local-development-key
+local-development-key
 ```
 
-For example, start MongoDB with Docker:
+The default key and MongoDB credentials are for local evaluation only. Change them in `.env` before running the setup script again. If port `5274` is already in use, change `API_PORT` in `.env`.
+
+## Browser UI
+
+Open http://localhost:5274/ and:
+
+1. Enter `local-development-key`.
+2. Choose one of the JSON files in `samples/`.
+3. Click **Upload**.
+4. Click **Load files** to view stored-file metadata.
+5. Click **Select** to load records and apply Active, Name, or Value filters.
+6. Click **Delete** beside a file and confirm to remove it and its records.
+
+The UI is a simple client of the REST API. It does not access MongoDB directly. API validation and error messages are displayed in the page.
+
+## API key
+
+The API validates the `X-API-Key` request header with middleware.
+
+- `/`, `/swagger`, and `/health` are public.
+- Every `/api/files/*` endpoint requires `X-API-Key`.
+- The Docker key is configured by `API_KEY` in `.env`.
+- Local `dotnet run` uses the Development value `local-development-key`.
+
+Example:
 
 ```bash
-docker run --name file-processing-mongodb \
-  -p 27017:27017 \
-  -e MONGO_INITDB_ROOT_USERNAME=admin \
-  -e MONGO_INITDB_ROOT_PASSWORD=password \
-  -d mongo:8.0
+curl -H "X-API-Key: local-development-key" http://localhost:5274/api/files/report
 ```
-
-Then run the API:
-
-```bash
-dotnet run --project src/FileProcessing.Api/FileProcessing.Api.csproj --launch-profile http
-```
-
-The local browser page is at `http://localhost:5232/`. Swagger is at `http://localhost:5232/swagger`.
 
 ## JSON format
 
@@ -84,33 +85,30 @@ Uploads must have a `.json` extension and contain an array of records with this 
 ]
 ```
 
-`samples/items.json` contains a larger example. `samples/items-small.json` and `samples/items-special.json` contain smaller variants. `samples/items-invalid.json` is expected to be rejected. The upload stores the parsed records and file metadata. The original file is not stored.
+The following sample files are included in the repository:
+
+- [`items.json`](samples/items.json): larger valid sample with 10 records
+- [`items-small.json`](samples/items-small.json): small valid sample with 3 records
+- [`items-special.json`](samples/items-special.json): valid sample with varied names, values, and active states
+- [`items-invalid.json`](samples/items-invalid.json): intentionally malformed sample for testing API validation; it should be rejected
+
+The three valid samples can be uploaded through the browser UI or the upload endpoint. The upload stores parsed records and file metadata; the original file is not stored.
 
 ## Endpoints
 
-All `/api/files` endpoints require the `X-API-Key` header. `/health` is public.
-
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/health` | Check that the API is running |
-| POST | `/api/files/upload` | Upload and store one JSON file |
-| GET | `/api/files/report` | List uploaded files and record counts |
-| GET | `/api/files/{id}/records` | Return records for one file, optionally filtered |
-| DELETE | `/api/files/{id}` | Delete one stored file and its records |
-
-Use the `X-API-Key` field shown in Swagger, or add the header to a request. The Docker default port is used below; use `5232` for a local `dotnet run` process.
-
-```bash
-curl -H "X-API-Key: local-development-key" http://localhost:5274/api/files/report
-```
-
-## Browser workflow
-
-Open the root page, enter the API key, and choose a JSON file. Upload it, load the report, select a file, and apply filters. Use the Delete button beside a file to remove it after confirming.
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/` | Public | Browser UI |
+| GET | `/swagger` | Public | Interactive API documentation |
+| GET | `/health` | Public | Check that the API is running |
+| POST | `/api/files/upload` | API key | Upload and store one JSON file |
+| GET | `/api/files/report` | API key | List uploaded files and record counts |
+| GET | `/api/files/{id}/records` | API key | Return records for one file, optionally filtered |
+| DELETE | `/api/files/{id}` | API key | Delete one stored file and its records |
 
 ## API workflow
 
-Upload a file and copy the `id` from the response:
+Run these commands from the repository folder. Upload a file and copy the `id` from the response:
 
 ```bash
 curl -X POST \
@@ -119,7 +117,15 @@ curl -X POST \
   http://localhost:5274/api/files/upload
 ```
 
-Use that ID to retrieve filtered records:
+List processed files:
+
+```bash
+curl \
+  -H "X-API-Key: local-development-key" \
+  http://localhost:5274/api/files/report
+```
+
+Retrieve filtered records using the returned ID:
 
 ```bash
 curl -G \
@@ -132,15 +138,15 @@ curl -G \
   http://localhost:5274/api/files/FILE_ID/records
 ```
 
-Filters are optional and are combined with AND. If a comparison is omitted, the defaults are `Equal` for `active` and `value`, and `Contains` for `name`.
-
-Delete a stored file by ID:
+Delete a stored file by ID. A successful delete returns `204 No Content`:
 
 ```bash
 curl -X DELETE \
   -H "X-API-Key: local-development-key" \
   http://localhost:5274/api/files/FILE_ID
 ```
+
+Filters are optional and are combined with AND. If a comparison is omitted, the defaults are `Equal` for `active` and `value`, and `Contains` for `name`.
 
 Available comparisons:
 
@@ -149,3 +155,56 @@ Available comparisons:
 - `valueComparison`: `Equal`, `GreaterThan`, `GreaterThanOrEqual`, `LessThan`, `LessThanOrEqual`
 
 Duplicate filenames are allowed. Each upload gets its own generated ID.
+
+## Local development
+
+The Development settings expect MongoDB at `localhost:27017`:
+
+```text
+Username: admin
+Password: password
+Database: file-processing
+API key: local-development-key
+```
+
+Start MongoDB with Docker:
+
+```bash
+docker run --name file-processing-mongodb \
+  -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=admin \
+  -e MONGO_INITDB_ROOT_PASSWORD=password \
+  -d mongo:8.0
+```
+
+Run the API:
+
+```bash
+dotnet run --project src/FileProcessing.Api/FileProcessing.Api.csproj --launch-profile http
+```
+
+The local browser UI is at http://localhost:5232/. Swagger is at http://localhost:5232/swagger.
+
+## Build and test
+
+The solution uses .NET 10:
+
+```bash
+dotnet restore FileProcessing.slnx
+dotnet build FileProcessing.slnx --configuration Release --no-restore
+dotnet test FileProcessing.slnx --configuration Release --no-build --no-restore
+```
+
+## Stop and reset
+
+Stop the containers while keeping MongoDB data:
+
+```bash
+docker compose down
+```
+
+The `mongo-data` named volume intentionally survives container deletion, so uploaded data remains after restarting the stack. To remove the containers and all MongoDB data:
+
+```bash
+docker compose down -v
+```

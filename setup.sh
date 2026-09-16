@@ -30,3 +30,5 @@ done < .env
 
 printf '%s\n' "API is running at http://localhost:${api_port}"
 printf '%s\n' "Swagger: http://localhost:${api_port}/swagger"
+printf '%s\n' "Default API key: local-development-key"
+printf '%s\n' "Use the API_KEY value from .env if you changed it."

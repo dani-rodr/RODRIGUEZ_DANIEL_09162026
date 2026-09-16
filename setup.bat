@@ -28,6 +28,8 @@ if not defined API_PORT set "API_PORT=5274"
 
 echo API is running at http://localhost:%API_PORT%
 echo Swagger: http://localhost:%API_PORT%/swagger
+echo Default API key: local-development-key
+echo Use the API_KEY value from .env if you changed it.
 echo.
 pause
 exit /b 0
